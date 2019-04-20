@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -32,7 +33,7 @@ type File struct {
 }
 
 func payloadHandler(data interface{}) jwt.MapClaims {
-	if v, ok := data.(Payload); ok {
+	if v, ok := data.(*Payload); ok {
 		return jwt.MapClaims{
 			"email": v.Email,
 			"scope": v.Scope,
@@ -65,40 +66,30 @@ func unauthorizedHandler(c *gin.Context, code int, message string) {
 	})
 }
 
-// func TusdHandler(config tusd.Config) (*Handler, error) {
-// 	if err := config.validate(); err != nil {
-// 		return nil, err
-// 	}
+func authenticator(c *gin.Context) (interface{}, error) {
+	var loginVals struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 
-// 	handler, err := NewUnroutedHandler(config)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	if err := c.ShouldBind(&loginVals); err != nil {
+		return "", jwt.ErrMissingLoginValues
+	}
+	userID := loginVals.Email
+	password := loginVals.Password
 
-// 	routedHandler := &Handler{
-// 		UnroutedHandler: handler,
-// 	}
+	if (userID == "admin" && password == "admin") || (userID == "test" && password == "test") {
+		return &Payload{
+			Email: loginVals.Email,
+			Scope: []string{},
+			Value: map[string]interface{}{
+				"path": "admin",
+			},
+		}, nil
+	}
 
-// 	mux := pat.New()
-
-// 	routedHandler.Handler = handler.Middleware(mux)
-
-// 	mux.Post("", http.HandlerFunc(handler.PostFile))
-// 	mux.Head(":id", http.HandlerFunc(handler.HeadFile))
-// 	mux.Add("PATCH", ":id", http.HandlerFunc(handler.PatchFile))
-
-// 	// Only attach the DELETE handler if the Terminate() method is provided
-// 	if config.StoreComposer.UsesTerminater {
-// 		mux.Del(":id", http.HandlerFunc(handler.DelFile))
-// 	}
-
-// 	// GET handler requires the GetReader() method
-// 	if config.StoreComposer.UsesGetReader {
-// 		mux.Get(":id", http.HandlerFunc(handler.GetFile))
-// 	}
-
-// 	return routedHandler, nil
-// }
+	return nil, jwt.ErrFailedAuthentication
+}
 
 func processUpload() chan tusd.FileInfo {
 	channel := make(chan tusd.FileInfo)
@@ -110,8 +101,31 @@ func processUpload() chan tusd.FileInfo {
 	return channel
 }
 
-func reject(c *gin.Context) {
-	c.JSON(404, "")
+func addMetadata(c *gin.Context) {
+	metadata := c.Request.Header.Get("upload-metadata")
+	claims := jwt.ExtractClaims(c)
+
+	value, ok := claims["value"].(map[string]interface{})
+	if !ok {
+		c.JSON(403, "Forbidden")
+		return
+	}
+
+	pathInterface, ok := value["path"]
+	if !ok {
+		c.JSON(403, "Forbidden")
+		return
+	}
+
+	path, ok := pathInterface.(string)
+	if !ok {
+		c.JSON(403, "Forbidden")
+		return
+	}
+
+	metadata = metadata + ", goup-path " + base64.StdEncoding.EncodeToString([]byte(path))
+	c.Request.Header.Set("upload-metadata", metadata)
+	c.Next()
 }
 
 func main() {
@@ -156,6 +170,7 @@ func main() {
 		IdentityKey:     "id",
 		PayloadFunc:     payloadHandler,
 		IdentityHandler: identityHandler,
+		Authenticator:   authenticator,
 		Authorizator:    authorizatorHandler,
 		Unauthorized:    unauthorizedHandler,
 		TokenLookup:     "header: Authorization, query: token",
@@ -168,11 +183,12 @@ func main() {
 	config.AllowOrigins = []string{"http://localhost:8080"}
 	config.AddAllowHeaders("Authorization", "tus-resumable", "upload-length", "upload-metadata", "upload-offset", "Location")
 	router.Use(cors.New(config))
+	router.POST("/login", authMiddleware.LoginHandler)
 	router.GET("/list", authMiddleware.MiddlewareFunc(), list)
 
-	router.POST("/files/*any", gin.WrapH(http.StripPrefix("/files/", handler)))
-	router.HEAD("/files/*any", gin.WrapH(http.StripPrefix("/files/", handler)))
-	router.PATCH("/files/*any", gin.WrapH(http.StripPrefix("/files/", handler)))
+	router.POST("/files/*any", authMiddleware.MiddlewareFunc(), addMetadata, gin.WrapH(http.StripPrefix("/files/", handler)))
+	router.HEAD("/files/*any", authMiddleware.MiddlewareFunc(), gin.WrapH(http.StripPrefix("/files/", handler)))
+	router.PATCH("/files/*any", authMiddleware.MiddlewareFunc(), gin.WrapH(http.StripPrefix("/files/", handler)))
 	bind := viper.GetString("bind")
 	router.Run(bind)
 }

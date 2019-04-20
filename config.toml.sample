@@ -1,4 +1,3 @@
-# see 
 bind = "127.0.0.1:5000" 
 jwtSecret = "don't keep this secret"
 basePath = "/some/basePath"

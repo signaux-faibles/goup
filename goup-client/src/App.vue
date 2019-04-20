@@ -1,10 +1,46 @@
 <template>
   <v-app>
-      <v-text-field label="endpoint" model="endpoint" value="http://localhost:5000/files/"></v-text-field>
-      <v-text-field label="token" model="token" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwiZXhwIjoxNTU1NjgyMjM2LCJvcmlnX2lhdCI6MTU1NTY3ODYzNiwic2NvcGUiOlsiYWRtaW4iLCJhZG1pbkB0ZXN0LmNvbSJdLCJ2YWx1ZSI6eyJ1cGxvYWRfcGF0aCI6ImFkbWluIn19.bxFiPyJfFmPGFbr2hKNyTRASXAzYDOB-8hFzaCrggUo"></v-text-field>
-      <UploadButton :fileChangedCallback="setFile"/>
-      <v-btn @click="test">test</v-btn>
-      <v-btn @click="upload">send</v-btn>
+    Goup minimal demonstration client
+    <v-container>
+      <v-layout row>
+
+        <v-flex class="pa-2" xs4>
+          <v-card class="pa-4">
+            <v-card-title>Login</v-card-title>
+            <v-text-field label="Login endpoint" v-model="loginEndpoint"></v-text-field>
+            <v-text-field label="test user" v-model="email"></v-text-field>
+            <v-text-field label="test password" v-model="password"></v-text-field>
+            <v-btn @click="login">Login</v-btn>
+          </v-card>
+        </v-flex>
+        <v-flex class="pa-2" xs4>
+          <v-card class="pa-4">
+            <v-card-title>Upload de fichier</v-card-title>
+            <v-text-field label="Service endpoint" v-model="endpoint"></v-text-field>
+            <v-text-field label="Auth token" v-model="token"></v-text-field>
+            <UploadButton
+              color="primary"
+              style="width:50%" 
+              :fileChangedCallback="setFile" 
+              title="fichier" />
+            <v-btn @click="upload">send</v-btn>
+          </v-card>
+        </v-flex>
+        <v-flex class="pa-2" xs4>
+          <v-card class="pa-4">
+            <v-textarea
+              clearable
+              label="Journal"
+              v-model="journal"
+              rows = 40
+              hint="Hint text"
+              reverse=true
+             ></v-textarea>
+          </v-card>
+        </v-flex>
+
+      </v-layout>
+    </v-container>
   </v-app>
 </template>
 
@@ -27,6 +63,20 @@ export default {
       UploadButton
   },
   methods: {
+    login () {
+      var params = {
+        email: this.email,
+        password: this.password,
+      }
+      console.log(params)
+      client.post(this.loginEndpoint, params).then(r => {
+        this.token = r.data.token
+        this.journal = this.date() + ': Authentification OK\n' + this.journal
+      }).catch(() => {
+        this.token = null
+        this.journal = this.date() + ': Authentification NOK\n' + this.journal
+      })
+    },
     setFile (file) {
       this.file = file
       console.log(file)
@@ -36,32 +86,70 @@ export default {
       console.log(this.token)
       client.get("http://localhost:5000/list").then(r => {console.log(r)})
     },
+    date () {
+      var today = new Date()
+      var dd = today.getDate()
+      var mm = today.getMonth()+1 //January is 0!
+      var yyyy = today.getFullYear()
+      var hh = today.getHours()
+      var mn = today.getMinutes()
+      var ss = today.getSeconds()
+      var ms = today.getMilliseconds()
+
+      if(dd<10) {
+        dd = '0'+dd
+      } 
+
+      if(mm<10) {
+        mm = '0'+mm
+      } 
+
+      if(hh<10) {
+        hh = '0' + hh
+      }
+      if(mn<10) {
+        mn = '0' + mn
+      }
+
+      if(ss<10) {
+        mn = '0' + mn
+      }
+
+      if(ms<100) {
+        ms = '0' + ms
+      }
+      if(ms<10) {
+        ms = '0' + ms
+      }
+      today = yyyy + '-' + mm + '-' + dd + ' ' + hh + ':' + mn + ':' + ss + '.' + ms  
+      return today
+    },
     upload () {
+      var self = this
       var upload = new tus.Upload(this.file, {
         endpoint: this.endpoint,
         retryDelays: [0, 3000, 5000, 10000, 20000],
         metadata: {
             filename: this.file.name,
-            filetype: this.file.type
+            filetype: this.file.type,
+            private: "true",
+            type: 'debit',
+            batch: '1903'
         },
         origin: "http://localhost:8080",
         headers: {
             Authorization: 'Bearer ' + this.token
         },
-        metadata: {
-          'type': 'debit',
-          'batch': '1903'
-        },
         chunkSize: 4000000,
         onError: function(error) {
-            console.log("Failed because: " + error)
+            self.journal = self.date() + ": Echec -> " + error + '\n' + self.journal
         },
         onProgress: function(bytesUploaded, bytesTotal) {
             var percentage = (bytesUploaded / bytesTotal * 100).toFixed(2)
-            console.log(bytesUploaded, bytesTotal, percentage + "%")
+            self.journal = self.date() + ": Envoi en cours -> " + bytesUploaded + ' sur ' + bytesTotal + ', soit ' + percentage + '%\n' + self.journal
         },
         onSuccess: function() {
-            console.log("Download %s from %s", upload.file.name, upload.url)
+            self.journal = self.date() + ": Envoi effectué -> " + upload.file.name + '\n' + self.journal
         }
       })
       upload.start()
@@ -69,10 +157,14 @@ export default {
   },
   data () {
     return {
+      loginEndpoint: 'http://localhost:5000/login',
       endpoint: 'http://localhost:5000/files/',
+      email: '',
+      password: '',
       currentFile: null,
       file: null,
-      token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwiZXhwIjoxNTU1NjgyMjM2LCJvcmlnX2lhdCI6MTU1NTY3ODYzNiwic2NvcGUiOlsiYWRtaW4iLCJhZG1pbkB0ZXN0LmNvbSJdLCJ2YWx1ZSI6eyJ1cGxvYWRfcGF0aCI6ImFkbWluIn19.bxFiPyJfFmPGFbr2hKNyTRASXAzYDOB-8hFzaCrggUo'
+      token: null,
+      journal: this.date() + ': Démarrage\n'
     }
   }
 }
