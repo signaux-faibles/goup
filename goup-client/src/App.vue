@@ -1,32 +1,38 @@
 <template>
   <v-app>
-    Goup minimal demonstration client
+    <div class="title">
+      <span id="goupRed">Go</span>
+      <span id="goupBlue">up</span><br/><br/>
+      <span id="subtitle">client</span>
+    </div>
     <v-container>
-      <v-layout row>
-
-        <v-flex class="pa-2" xs4>
-          <v-card class="pa-4">
+      <v-layout row wrap>
+        <v-flex class="pa-2" xs6 >
+          <v-card class="pa-4" style="height:400px"> 
             <v-card-title>Login</v-card-title>
             <v-text-field label="Login endpoint" v-model="loginEndpoint"></v-text-field>
-            <v-text-field label="test user" v-model="email"></v-text-field>
-            <v-text-field label="test password" v-model="password"></v-text-field>
+            <v-text-field label="user" v-model="email"></v-text-field>
+            <v-text-field label="password" v-model="password"></v-text-field>
             <v-btn @click="login">Login</v-btn>
           </v-card>
         </v-flex>
-        <v-flex class="pa-2" xs4>
-          <v-card class="pa-4">
+        <v-flex class="pa-2" xs6>
+          <v-card class="pa-4" style="height:400px">
             <v-card-title>Upload de fichier</v-card-title>
             <v-text-field label="Service endpoint" v-model="endpoint"></v-text-field>
             <v-text-field label="Auth token" v-model="token"></v-text-field>
-            <UploadButton
-              color="primary"
-              style="width:50%" 
-              :fileChangedCallback="setFile" 
-              title="fichier" />
-            <v-btn @click="upload">send</v-btn>
+            <v-checkbox label="privé" v-model="privateFile"/>
+            <div style="display: flex">
+              <UploadButton
+                color="primary"
+                style="width:50%" 
+                :fileChangedCallback="setFile" 
+                title="fichier" />
+              <v-btn @click="upload">send</v-btn>
+            </div>
           </v-card>
         </v-flex>
-        <v-flex class="pa-2" xs4>
+        <v-flex class="pa-2" xs12>
           <v-card class="pa-4">
             <v-textarea
               clearable
@@ -38,7 +44,6 @@
              ></v-textarea>
           </v-card>
         </v-flex>
-
       </v-layout>
     </v-container>
   </v-app>
@@ -68,7 +73,6 @@ export default {
         email: this.email,
         password: this.password,
       }
-      console.log(params)
       client.post(this.loginEndpoint, params).then(r => {
         this.token = r.data.token
         this.journal = this.date() + ': Authentification OK\n' + this.journal
@@ -79,12 +83,6 @@ export default {
     },
     setFile (file) {
       this.file = file
-      console.log(file)
-    },
-    test () {
-      client.defaults.headers.common['Authorization'] = `Bearer ` + this.token
-      console.log(this.token)
-      client.get("http://localhost:5000/list").then(r => {console.log(r)})
     },
     date () {
       var today = new Date()
@@ -132,11 +130,11 @@ export default {
         metadata: {
             filename: this.file.name,
             filetype: this.file.type,
-            private: "true",
+            private: self.privateFile?"true":"false",
             type: 'debit',
             batch: '1903'
         },
-        origin: "http://localhost:8080",
+        origin: "https://goup.signaux-faibles.beta.gouv.fr",
         headers: {
             Authorization: 'Bearer ' + this.token
         },
@@ -157,8 +155,9 @@ export default {
   },
   data () {
     return {
-      loginEndpoint: 'http://localhost:5000/login',
-      endpoint: 'http://localhost:5000/files/',
+      privateFile: false,
+      loginEndpoint: 'https://goup.signaux-faibles.beta.gouv.fr/login',
+      endpoint: 'https://goup.signaux-faibles.beta.gouv.fr/files/',
       email: '',
       password: '',
       currentFile: null,
@@ -169,3 +168,28 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css?family=Pacifico');
+div.title {
+  display: block;
+  width: 100%;
+  margin: 30px;
+  text-align: center;
+}
+#goupRed {
+  font-family: "Pacifico";
+  font-size: 40px;
+  color: #003189
+}
+#goupBlue {
+  font-family: "Pacifico";
+  font-size: 40px;
+  color: #e2011c
+}
+#subtitle {
+  margin-top: 30px;
+  color: #666;
+  font-weight: 100;
+}
+</style>

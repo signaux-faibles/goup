@@ -27,7 +27,7 @@ Goup est basé sur https://github.com/tus/tusd mais certaines fonctionnalités o
 L'implémentation actuelle se base sur un stockage fichier POSIX, toutefois l'implémentation du serveur tusd permet d'exploiter de nombreux types de stockage.
 
 ## Utilisation
-### Client
+### Client
 Il est conseillé d'utiliser un client tus, il en existe un facile de mise en oeuvre en python:
 
 Si vous souhaitez intégrer l'upload de fichier dans un projet, il existe des librairies qui implémentent le protocol de nombreux langages. Pour n'en citer que quelques-uns:
@@ -36,6 +36,7 @@ Si vous souhaitez intégrer l'upload de fichier dans un projet, il existe des li
 - java: https://github.com/tus/tus-java-client
 - go: https://github.com/eventials/go-tus
 - php: https://github.com/ankitpokhrel/tus-php
+- .NET: https://github.com/gerdus/tus-dotnet-client
 
 ### Exemple Javascript
 ```javascript
@@ -53,6 +54,7 @@ input.addEventListener("change", function(e) {
         metadata: {
             filename: file.name,
             filetype: file.type,
+            typeSignauxFaibles: 'extreme_cycling_downhill_on_volcano',
             private: 'true'
         },
         onError: function(error) {
@@ -72,8 +74,7 @@ input.addEventListener("change", function(e) {
 })
 ```
 ### Authentification
-La version actuelle propose un service d'authentification minimal pour la démonstration.
-Pour effectuer cette authentification, il est nécessaire d'attacher le token dans les entêtes des requêtes tus, ce qui est pris en charge par les clients tus, dans l'exemple précédent:
+Goup ne propose pas de service d'authentification, il est nécessaire pour l'utiliser d'obtenir un jeton auprès d'un autre service (comme gauthkeeper) Pour effectuer cette authentification, il est nécessaire d'attacher le token dans les entêtes des requêtes tus, ce qui est pris en charge par les clients tus, dans l'exemple précédent:
 ```javascript
 ...
         headers: {
@@ -96,25 +97,23 @@ Le chargement du jeton est un objet JSON devant comporter un clé `value.path` a
 Il est possible de fixer des métadonnées de façon arbitraire en suivant ces prérogatives:
 - Les métadonnées sont des chaines de caractères
 - La métadonnée private est interprétée par goup, si elle vaut `true` alors le serveur traitera le fichier de façon à empêcher son accès aux autres utilisateurs
-- La métadonnée goup-path est réservée par le serveur pour traiter le chemin de stockage, **toute valeur fixée pendant l'envoi sera écrasée**
+- La métadonnée goup-path est réservée par le serveur pour traiter le chemin de stockage, elle est fixée à partir de la valeur transmise dans le jeton d'authentification. **Toute valeur fixée dans les métadonnées de l'envoi sera écrasée.**
 
 ### Envoi en mode privé
 Ce mode permet d'envoyer un fichier sur la plateforme sans partager son contenu avec tous les utilisateurs de la plateforme.
+Pour l'utiliser, il faut fixer la métadonnée `'private'` à la valeur `'true'`; toute autre valeur sera considérée comme `'false'`
 
-Pour l'exploiter, il faut fixer la métadonnée `private` à la valeur `true`
-
-Exemple javascript:
+Exemple:
 ```javascript
 ...
     metadata: {
         filename: file.name,
         filetype: file.type,
+        typeSignauxFaibles: 'extreme_cycling_downhill_on_volcano',
         private: 'true'
     },
 ...
 ```
-
-Toute autre valeur sera ignorée.
 
 ## Installation
 Prérequis: go > 1.8
@@ -142,7 +141,7 @@ Les fichiers sont stockés avec l'identifiant créé par le serveur tus dans 2 f
 - un fichier de métadonnées avec une extension .info
 
 Exemple de fichier
-```javascript
+```json
 {
     "ID": "f72a07d9d12aa070f5a18d7376865795",
     "Size": 646221764,
@@ -150,11 +149,11 @@ Exemple de fichier
     "Offset": 0,
     "MetaData": {
         "batch": "1903",
-        "filename": "Vacances au Puy du Fou.mkv",
+        "filename": "Vacances au Puy de Dome.mkv",
         "filetype": "video/x-matroska",
-        "goup-path": "admin",
+        "goup-path": "christophe",
         "private": "true",
-        "type-signauxfaibles": "loisir"
+        "typeSignauxFaibles": "extreme_cycling_downhill_on_volcano"
     },
     "IsPartial": false,
     "IsFinal": false,
@@ -164,27 +163,37 @@ Exemple de fichier
 ```
 
 On retrouve dans ce fichier des informations relatives à l'état du fichier dans son traitement 
-#### Répertoires
-Les répertoires de stockage doivent être créés au préalable ainsi que les sous-répertoires correspondant aux utilisateurs et leurs espaces privés. Les droits utilisateurs des répertoires doivent être fixés au préalable, le serveur se chargera de fixer les droits des fichiers importés.
+#### Répertoires, permissions
+Les utilisateurs et répertoires de stockage doivent être créés au préalable ainsi que les sous-répertoires correspondant aux utilisateurs et leurs espaces privés. Les droits utilisateurs des répertoires doivent être fixés au préalable, le serveur se chargera de fixer les droits des fichiers importés.
+
+Lors qu'un versement est terminé, goup se charge de créer les liens nécessaires pour que le fichier soit disponible dans le répertoire de l'utilisateur. Le fichier d'origine reste disponible au travers d'un lien dur avec ses propres permissions pour permettre au serveur d'identifier le chargement de fichiers identiques.
+
+Pour fixer les droits, l'utilisateur du serveur aura des permissions spécifiques dans le fichier sudoers.
 
 Ci-dessous un exemple:
 
 ```
-chemin                           user:group   mode
-
+chemin                           user:group            mode 
 .
-+-- tusd                         root :root   700
-+-- user1                        user1:users  750
-|   +-- file1.bin                user1:users  640
-|   +-- file1.info               user1:users  640
-|   +-- private                  user1:users  700
-|   |   +-- file2.bin            user1:users  600
-|   |   +-- file2.info           user1:users  600
-+-- $value.path2                 user2:users  750
-|   +-- file3.bin                user2:users  640
-|   +-- file3.info               user2:users  640
-|   +-- private                  user2:users  700
-|   |   +-- file4.bin            user2:users  600
-|   |   +-- file4.info           user2:users  600
++-- tusd                         goup:goup             750
+|   +-- file1.bin                user1:users           640
+|   +-- file1.info               user1:users           640
+|   +-- file2.bin                user1:goup            640
+|   +-- file2.info               user1:goup            640
+|   +-- file3.bin                user2:users           640
+|   +-- file3.info               user2:users           640
+|   +-- file4.bin                user2:goup            640
+|   +-- file4.info               user2:goup            640
++-- public                       user1:users           750
+|   +-- file1.bin                user1:users           640
+|   +-- file1.info               user1:users           640
+|   +-- file3.bin                user2:users           640
+|   +-- file3.info               user2:users           640
++-- user1                        user1:goup            750
+|   +-- file2.bin                user1:goup            640
+|   +-- file2.info               user1:goup            640
++-- user2                        user2:goup            750
+|   +-- file4.bin                user2:goup            640
+|   +-- file4.info               user2:goup            640
 ```
 

@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/filestore"
 
@@ -78,13 +77,30 @@ func authenticator(c *gin.Context) (interface{}, error) {
 	userID := loginVals.Email
 	password := loginVals.Password
 
-	if (userID == "admin" && password == "admin") || (userID == "test" && password == "test") {
+	if userID == "user1" && password == "upload" {
 		return &Payload{
 			Email: loginVals.Email,
 			Scope: []string{},
 			Value: map[string]interface{}{
-				"path": "admin",
+				"goup-path": "user1",
 			},
+		}, nil
+	}
+
+	if userID == "user2" && password == "upload" {
+		return &Payload{
+			Email: loginVals.Email,
+			Scope: []string{},
+			Value: map[string]interface{}{
+				"goup-path": "user2",
+			},
+		}, nil
+	}
+
+	if userID == "user3" && password == "noupload" {
+		return &Payload{
+			Email: loginVals.Email,
+			Scope: []string{},
 		}, nil
 	}
 
@@ -94,8 +110,11 @@ func authenticator(c *gin.Context) (interface{}, error) {
 func processUpload() chan tusd.FileInfo {
 	channel := make(chan tusd.FileInfo)
 	go func() {
-		for t := range channel {
-			spew.Dump(t)
+		for file := range channel {
+			err := linkFile(file)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}()
 	return channel
@@ -108,18 +127,29 @@ func addMetadata(c *gin.Context) {
 	value, ok := claims["value"].(map[string]interface{})
 	if !ok {
 		c.JSON(403, "Forbidden")
+		c.Abort()
 		return
 	}
 
-	pathInterface, ok := value["path"]
+	pathInterface, ok := value["goup-path"]
 	if !ok {
 		c.JSON(403, "Forbidden")
+		c.Abort()
 		return
 	}
 
 	path, ok := pathInterface.(string)
 	if !ok {
 		c.JSON(403, "Forbidden")
+		c.Abort()
+		return
+	}
+
+	err := checkStorage(path)
+	if err != nil {
+		fmt.Println(path)
+		c.JSON(500, err.Error())
+		c.Abort()
 		return
 	}
 
@@ -137,12 +167,12 @@ func main() {
 		panic(err)
 	}
 
-	if err != nil {
-		panic(err)
+	if !isDirectory(viper.GetString("basePath") + "/tusd/") {
+		panic("Absence du répertoire de base")
 	}
 
 	store := filestore.FileStore{
-		Path: viper.GetString("basePath"),
+		Path: viper.GetString("basePath") + "/tusd/",
 	}
 	composer := tusd.NewStoreComposer()
 	composer.UsesGetReader = false
@@ -180,7 +210,7 @@ func main() {
 
 	router := gin.Default()
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:8080"}
+	config.AllowOrigins = []string{"https://goup.signaux-faibles.beta.gouv.fr/"}
 	config.AddAllowHeaders("Authorization", "tus-resumable", "upload-length", "upload-metadata", "upload-offset", "Location")
 	router.Use(cors.New(config))
 	router.POST("/login", authMiddleware.LoginHandler)
