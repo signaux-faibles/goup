@@ -13,10 +13,11 @@ Ce microservice respecte le protocol TUS, ce qui permet les fonctionnalités sui
 - il est possible d'envoyer plusieurs fichiers en parallèle
 
 
-Goup est basé sur https://github.com/tus/tusd mais certaines fonctionnalités ont été arrangées:
+Goup est basé sur https://github.com/tus/tusd et incorpore certaines fonctionnalités supplémentaires:
 - il n'est plus possible de télécharger un fichier depuis le serveur
-- une fois l'envoi terminé, le fichier est déplacé dans un espace de stockage spécifique à l'utilisateur
-- les droits utilisateurs sont alors définis sur le fichier 
+- une fois l'envoi terminé, le fichier est déplacé dans un espace de stockage spécifique avec des droits utilisateurs
+- il est possible d'orienter un versement vers l'espace partagé entre les utilisateurs ou un espace privatif
+
 
 ### présentation du protocol
 1. Le client teste si le fichier est déjà présent avec une requête `HEAD`
@@ -74,7 +75,7 @@ input.addEventListener("change", function(e) {
 })
 ```
 ### Authentification
-Goup ne propose pas de service d'authentification, il est nécessaire pour l'utiliser d'obtenir un jeton auprès d'un autre service (comme gauthkeeper) Pour effectuer cette authentification, il est nécessaire d'attacher le token dans les entêtes des requêtes tus, ce qui est pris en charge par les clients tus, dans l'exemple précédent:
+Goup ne propose pas de service d'authentification, il est nécessaire pour l'utiliser d'obtenir un jeton JWT auprès d'un autre service. Pour effectuer cette authentification, il est nécessaire d'attacher le token dans les entêtes des requêtes tus, ce qui est pris en charge par les clients tus, dans l'exemple précédent:
 ```javascript
 ...
         headers: {
@@ -121,7 +122,7 @@ Prérequis: go > 1.8
 `go get github.com/signaux-faibles/goup`
 
 ### Configuration
-La configuration s'effectue avec un fichier au format toml
+La configuration s'effectue avec un fichier au format toml à nommer config.toml et à placer dans le répertoire de travail de goup. En voici un exemple:
 ```
 bind = "127.0.0.1:5000" 
 jwtSecret = "don't keep this secret"
@@ -130,7 +131,7 @@ basePath = "/some/basePath"
 #### bind
 Adresse TCP sur laquelle va écouter le service goup
 #### jwtSecret
-Clé de signature des token JWT, doit être partagée avec le service qui génère les tokens
+Clé de signature des token JWT, doit être partagée avec le service d'authentification qui génère les tokens
 #### basePath
 Chemin de base où sera réalisé le stockage
 
@@ -166,34 +167,33 @@ On retrouve dans ce fichier des informations relatives à l'état du fichier dan
 #### Répertoires, permissions
 Les utilisateurs et répertoires de stockage doivent être créés au préalable ainsi que les sous-répertoires correspondant aux utilisateurs et leurs espaces privés. Les droits utilisateurs des répertoires doivent être fixés au préalable, le serveur se chargera de fixer les droits des fichiers importés.
 
-Lors qu'un versement est terminé, goup se charge de créer les liens nécessaires pour que le fichier soit disponible dans le répertoire de l'utilisateur. Le fichier d'origine reste disponible au travers d'un lien dur avec ses propres permissions pour permettre au serveur d'identifier le chargement de fichiers identiques.
-
-Pour fixer les droits, l'utilisateur du serveur aura des permissions spécifiques dans le fichier sudoers.
+Lors qu'un versement est terminé, goup se charge de créer les liens nécessaires pour que le fichier soit disponible dans le répertoire de l'utilisateur. Le fichier d'origine reste disponible au travers d'un lien dur dans le but de permettre au serveur tusd d'identifier le chargement de fichiers identiques.
 
 Ci-dessous un exemple:
 
 ```
 chemin                           user:group            mode 
+
 .
-+-- tusd                         goup:goup             750
-|   +-- file1.bin                user1:users           640
-|   +-- file1.info               user1:users           640
-|   +-- file2.bin                user1:goup            640
-|   +-- file2.info               user1:goup            640
-|   +-- file3.bin                user2:users           640
-|   +-- file3.info               user2:users           640
-|   +-- file4.bin                user2:goup            640
-|   +-- file4.info               user2:goup            640
-+-- public                       user1:users           750
-|   +-- file1.bin                user1:users           640
-|   +-- file1.info               user1:users           640
-|   +-- file3.bin                user2:users           640
-|   +-- file3.info               user2:users           640
-+-- user1                        user1:goup            750
-|   +-- file2.bin                user1:goup            640
-|   +-- file2.info               user1:goup            640
-+-- user2                        user2:goup            750
-|   +-- file4.bin                user2:goup            640
-|   +-- file4.info               user2:goup            640
++-- tusd                         goup:goup             770
+|   +-- file1.bin                user1:users           660
+|   +-- file1.info               user1:users           660
+|   +-- file2.bin                user1:goup            660
+|   +-- file2.info               user1:goup            660
+|   +-- file3.bin                user2:users           660
+|   +-- file3.info               user2:users           660
+|   +-- file4.bin                user2:goup            660
+|   +-- file4.info               user2:goup            660
++-- public                       user1:users           770
+|   +-- file1.bin                user1:users           660
+|   +-- file1.info               user1:users           660
+|   +-- file3.bin                user2:users           660
+|   +-- file3.info               user2:users           660
++-- user1                        user1:goup            770
+|   +-- file2.bin                user1:goup            660
+|   +-- file2.info               user1:goup            660
++-- user2                        user2:goup            770
+|   +-- file4.bin                user2:goup            660
+|   +-- file4.info               user2:goup            660
 ```
 
