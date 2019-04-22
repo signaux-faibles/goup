@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -65,6 +64,7 @@ func unauthorizedHandler(c *gin.Context, code int, message string) {
 	})
 }
 
+// authenticator est une fonction temporaire pour assurer l'authentification pour la démonstration qui ne restera pas dans la version production
 func authenticator(c *gin.Context) (interface{}, error) {
 	var loginVals struct {
 		Email    string `json:"email"`
@@ -214,8 +214,6 @@ func main() {
 	config.AddAllowHeaders("Authorization", "tus-resumable", "upload-length", "upload-metadata", "upload-offset", "Location")
 	router.Use(cors.New(config))
 	router.POST("/login", authMiddleware.LoginHandler)
-	router.GET("/list", authMiddleware.MiddlewareFunc(), list)
-
 	router.POST("/files/*any", authMiddleware.MiddlewareFunc(), addMetadata, gin.WrapH(http.StripPrefix("/files/", handler)))
 	router.HEAD("/files/*any", authMiddleware.MiddlewareFunc(), gin.WrapH(http.StripPrefix("/files/", handler)))
 	router.PATCH("/files/*any", authMiddleware.MiddlewareFunc(), gin.WrapH(http.StripPrefix("/files/", handler)))
@@ -230,58 +228,4 @@ func isDirectory(path string) bool {
 		return true
 	}
 	return false
-}
-
-func list(c *gin.Context) {
-	a := jwt.ExtractClaims(c)
-
-	basePath := viper.GetString("basePath")
-	uploadPath, ok := a["value"].(map[string]interface{})["upload_path"].(string)
-
-	if !ok {
-		c.JSON(403, "L'utilisateur n'a pas les permissions nécessaires")
-		return
-	}
-
-	if !isDirectory(basePath+"/"+uploadPath) || !isDirectory(basePath+"/"+uploadPath+"/private") {
-		c.JSON(500, "Stockage mal configuré")
-		return
-	}
-
-	public, err := ioutil.ReadDir(basePath + "/" + uploadPath)
-	if err != nil {
-		c.JSON(500, "Erreur sur le répertoire public: "+err.Error())
-	}
-
-	private, err := ioutil.ReadDir(basePath + "/" + uploadPath + "/private")
-	if err != nil {
-		c.JSON(500, "Erreur sur le répertoire privé: "+err.Error())
-	}
-
-	var files struct {
-		Public  []File `json:"public,omitempty"`
-		Private []File `json:"private,omitempty"`
-	}
-
-	for _, p := range public {
-		if p.Name() != "private" && !p.IsDir() {
-			files.Public = append(files.Public, File{
-				Name:   p.Name(),
-				Domain: "public",
-			})
-		}
-	}
-
-	for _, p := range private {
-		files.Private = append(files.Private, File{
-			Name:   p.Name(),
-			Domain: "private",
-		})
-	}
-
-	c.JSON(200, files)
-}
-
-func upload(h *tusd.Handler) func(*gin.Context) {
-	return gin.WrapH(h)
 }

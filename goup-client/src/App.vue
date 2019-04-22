@@ -1,19 +1,19 @@
 <template>
   <v-app>
     <div class="title">
-      <span id="goupRed">Go</span>
-      <span id="goupBlue">up</span><br/><br/>
+      <span id="goupBlue">Go</span>
+      <span id="goupRed">up</span><br/><br/>
       <span id="subtitle">client</span>
     </div>
     <v-container>
       <v-layout row wrap>
         <v-flex class="pa-2" xs6 >
-          <v-card class="pa-4" style="height:400px"> 
+          <v-card class="pa-4" style="height:400px; text-align: center" > 
             <v-card-title>Login</v-card-title>
             <v-text-field label="Login endpoint" v-model="loginEndpoint"></v-text-field>
             <v-text-field label="user" v-model="email"></v-text-field>
             <v-text-field label="password" v-model="password"></v-text-field>
-            <v-btn @click="login">Login</v-btn>
+            <v-btn color="#003189" dark @click="login">Login</v-btn>
           </v-card>
         </v-flex>
         <v-flex class="pa-2" xs6>
@@ -22,26 +22,51 @@
             <v-text-field label="Service endpoint" v-model="endpoint"></v-text-field>
             <v-text-field label="Auth token" v-model="token"></v-text-field>
             <v-checkbox label="privé" v-model="privateFile"/>
-            <div style="display: flex">
+            <div style="display: flex; justify-content: center;">
               <UploadButton
-                color="primary"
+                color="red"
                 style="width:50%" 
                 :fileChangedCallback="setFile" 
                 title="fichier" />
-              <v-btn @click="upload">send</v-btn>
+              <v-btn color="#003189" :disabled="fileSet" dark @click="upload">send</v-btn>
             </div>
+            {{ (file || {name: "pas de fichier sélectionné"}).name }} {{ file?":":""}} {{ (file || {size: ""}).size }} {{ file?"octets":""}}
           </v-card>
         </v-flex>
         <v-flex class="pa-2" xs12>
           <v-card class="pa-4">
-            <v-textarea
-              clearable
-              label="Journal"
-              v-model="journal"
-              rows = 40
-              hint="Hint text"
-              reverse=true
-             ></v-textarea>
+            <v-tabs
+              centered
+              color="transparent"
+              slider-color="white"
+            >
+              <v-tab key="log">
+                Log
+              </v-tab>
+              <v-tab key="store">
+                File Store
+              </v-tab>
+            
+              <v-tab-item key="log">
+                  <v-textarea
+                  readonly
+                  v-model="journal"
+                  rows = 40
+                  hint="Hint text"
+                  :reverse='true'
+                  ></v-textarea>
+              </v-tab-item>
+              <v-tab-item key="store">
+                <div style="width: 100%; text-align:center"><v-btn color="#003189" dark @click="refreshFiles">Rafraichir</v-btn></div>
+                  <v-textarea
+                  readonly
+                  v-model="filesRead"
+                  rows = 40
+                  hint="Hint text"
+                  :reverse='true'
+                  ></v-textarea>
+              </v-tab-item>
+            </v-tabs>   
           </v-card>
         </v-flex>
       </v-layout>
@@ -67,7 +92,26 @@ export default {
   components: {
       UploadButton
   },
+  computed: {
+    fileSet () {
+      return this.file == null
+    },
+    filesRead: {
+      get () {if (this.files.length > 0) {return JSON.stringify(this.files, null, 2)} else {return ''}},
+      set () {}
+    }
+  },
+  mounted () {
+    this.refreshFiles()
+  },
   methods: {
+    refreshFiles () {
+      var e = this.endpoint.slice(0, this.endpoint.length-6) + 'list'
+      console.log(e)
+      client.get(e).then(r => {
+        this.files = r.data
+      })
+    },
     login () {
       var params = {
         email: this.email,
@@ -160,8 +204,8 @@ export default {
       endpoint: 'https://goup.signaux-faibles.beta.gouv.fr/files/',
       email: '',
       password: '',
-      currentFile: null,
       file: null,
+      files: [],
       token: null,
       journal: this.date() + ': Démarrage\n'
     }
@@ -177,12 +221,12 @@ div.title {
   margin: 30px;
   text-align: center;
 }
-#goupRed {
+#goupBlue {
   font-family: "Pacifico";
   font-size: 40px;
   color: #003189
 }
-#goupBlue {
+#goupRed {
   font-family: "Pacifico";
   font-size: 40px;
   color: #e2011c

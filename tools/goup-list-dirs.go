@@ -38,7 +38,6 @@ func main() {
 	router := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{hostname}
-	config.AddAllowHeaders("Authorization", "tus-resumable", "upload-length", "upload-metadata", "upload-offset", "Location")
 	router.Use(cors.New(config))
 	router.GET("/list", list)
 
