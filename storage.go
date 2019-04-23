@@ -62,8 +62,17 @@ func linkFile(file tusd.FileInfo) error {
 	tusdStore := basePath + "/tusd/"
 
 	usersgroup, err := user.LookupGroup("users")
+	if err != nil {
+		return err
+	}
 	goupgroup, err := user.LookupGroup("goup")
+	if err != nil {
+		return err
+	}
 	user, err := user.Lookup(file.MetaData["goup-path"])
+	if err != nil {
+		return err
+	}
 
 	owner, _ := strconv.Atoi(user.Uid)
 	group, _ := strconv.Atoi(usersgroup.Gid)

@@ -77,30 +77,30 @@ func authenticator(c *gin.Context) (interface{}, error) {
 	userID := loginVals.Email
 	password := loginVals.Password
 
-	if userID == "user1" && password == "upload" {
+	if userID == "user1@test.com" && password == "upload" {
 		return &Payload{
 			Email: loginVals.Email,
-			Scope: []string{},
+			Scope: []string{"user1", "BFC", "stats"},
 			Value: map[string]interface{}{
 				"goup-path": "user1",
 			},
 		}, nil
 	}
 
-	if userID == "user2" && password == "upload" {
+	if userID == "user2@test.com" && password == "upload" {
 		return &Payload{
 			Email: loginVals.Email,
-			Scope: []string{},
+			Scope: []string{"user2", "BFC", "stats"},
 			Value: map[string]interface{}{
 				"goup-path": "user2",
 			},
 		}, nil
 	}
 
-	if userID == "user3" && password == "noupload" {
+	if userID == "user3@test.com" && password == "noupload" {
 		return &Payload{
 			Email: loginVals.Email,
-			Scope: []string{},
+			Scope: []string{"user3", "PDL"},
 		}, nil
 	}
 
@@ -208,9 +208,10 @@ func main() {
 		TimeFunc:        time.Now,
 	})
 
+	hostname := viper.GetString("hostname")
 	router := gin.Default()
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"https://goup.signaux-faibles.beta.gouv.fr/"}
+	config.AllowOrigins = []string{hostname}
 	config.AddAllowHeaders("Authorization", "tus-resumable", "upload-length", "upload-metadata", "upload-offset", "Location")
 	router.Use(cors.New(config))
 	router.POST("/login", authMiddleware.LoginHandler)

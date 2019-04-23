@@ -66,13 +66,14 @@ func listDir(path string) ([]FileInfo, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		groupName, err := user.LookupGroupId(fmt.Sprint(d.Sys().(*syscall.Stat_t).Gid))
 		if err != nil {
 			return nil, err
 		}
 		f := FileInfo{
 			FileName: path + "/" + d.Name(),
-			Owner:    userName.Name,
+			Owner:    userName.Username,
 			Group:    groupName.Name,
 			Size:     d.Size(),
 			Mode:     d.Mode().String(),
