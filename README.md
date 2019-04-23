@@ -102,6 +102,7 @@ Il est possible de fixer des métadonnées de façon arbitraire en suivant ces p
 - Les métadonnées sont des chaines de caractères
 - La métadonnée private est interprétée par goup, si elle vaut `true` alors le serveur traitera le fichier de façon à empêcher son accès aux autres utilisateurs
 - La métadonnée goup-path est réservée par le serveur pour traiter le chemin de stockage, elle est fixée à partir de la valeur transmise dans le jeton d'authentification. **Toute valeur fixée dans les métadonnées de l'envoi sera écrasée.**
+- Les métadonnées filename et filetype sont également réservées
 
 ### Envoi en mode privé
 Ce mode permet d'envoyer un fichier sur la plateforme sans partager son contenu avec tous les utilisateurs de la plateforme.
