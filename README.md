@@ -75,7 +75,7 @@ input.addEventListener("change", function(e) {
 })
 ```
 ### Authentification
-Goup ne propose pas de service d'authentification, il est nécessaire pour l'utiliser d'obtenir un jeton JWT auprès d'un autre service. Pour effectuer cette authentification, il est nécessaire d'attacher le token dans les entêtes des requêtes tus, ce qui est pris en charge par les clients tus, dans l'exemple précédent:
+Pour authentifier un versement avec goup, il est nécessaire d'attacher un jeton JWT dans les entêtes des requêtes tus, ce qui est pris en charge par les clients standards. Dans l'exemple précédent réalisé avec le client javascript:
 ```javascript
 ...
         headers: {
@@ -83,6 +83,9 @@ Goup ne propose pas de service d'authentification, il est nécessaire pour l'uti
         },
 ...
 ```
+
+Pour obtenir ce token, il conviendra d'adresser une requête sur le service `/login` de la plateforme signaux-faibles avec des identifiants d'utilisateurs reconnus. L'habilitation à verser des fichiers dans goup sera porté dans le chargement du jeton.
+Dans la version de démonstration, un service minimal de login est en place, toutefois goup ne proposera pas dans sa version production de service d'authentification, il sera nécessaire pour l'utiliser d'obtenir un jeton JWT auprès d'un autre service. 
 
 ### Structure du jeton
 Le jeton doit être signé avec le même secret que celui déclaré dans la configuration (`jwtSecret`).  

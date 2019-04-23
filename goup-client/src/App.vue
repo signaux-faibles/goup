@@ -69,6 +69,7 @@
                     <th>Taille</th>
                     <th>Propriétaire</th>
                     <th>Groupe</th>
+                    <th>Mode</th>
                     <th>Informations TUSD</th>
                   </tr>
                   <tr v-for="f in files" :key="f.filename">
@@ -76,6 +77,7 @@
                     <td>{{ f.size }}</td>
                     <td>{{ f.owner }}</td>
                     <td>{{ f.group }}</td>
+                    <td>{{ f.mode }}</td>
                     <td><v-textarea rows=1 readonly :value="JSON.stringify((f.tusdInfo||{}).MetaData, null, 2)"></v-textarea></td>
                   </tr>
                 </table>
