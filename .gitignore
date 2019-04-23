@@ -16,4 +16,5 @@ config.toml
 goup
 
 tools/listdir.toml
-tools/go-list-dirs
+tools/goup-list-dirs
+tools/tools
