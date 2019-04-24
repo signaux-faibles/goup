@@ -15,7 +15,8 @@ Ce microservice respecte le protocol TUS, ce qui permet les fonctionnalités sui
 
 Goup est basé sur https://github.com/tus/tusd et incorpore certaines fonctionnalités supplémentaires:
 - il n'est plus possible de télécharger un fichier depuis le serveur
-- une fois l'envoi terminé, le fichier est déplacé dans un espace de stockage spécifique avec des droits utilisateurs
+- pendant l'envoi le fichier est placé dans un répertoire qui n'est pas accessible aux utilisateurs
+- une fois l'envoi terminé, le fichier est disposé avec un lien dur dans un espace de stockage spécifique avec des droits utilisateurs
 - il est possible d'orienter un versement vers l'espace partagé entre les utilisateurs ou un espace privatif
 
 
