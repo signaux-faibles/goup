@@ -50,7 +50,6 @@ func addMetadata(c *gin.Context) {
 	metadata := c.Request.Header.Get("upload-metadata")
 	claims := c.Keys["claims"].(*jwt.MapClaims)
 
-	fmt.Println("coucou")
 	path, ok := (*claims)["goup_path"].(string)
 	if !ok {
 		c.JSON(403, "Forbidden")
@@ -107,6 +106,8 @@ func main() {
 	}
 
 	hostname := viper.GetString("hostname")
+
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{hostname}
