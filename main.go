@@ -94,9 +94,10 @@ func main() {
 	store.UseIn(composer)
 
 	handler, err := tusd.NewHandler(tusd.Config{
-		BasePath:              "/files/",
-		StoreComposer:         composer,
-		NotifyCompleteUploads: true,
+		BasePath:                "/files/",
+		StoreComposer:           composer,
+		NotifyCompleteUploads:   true,
+		RespectForwardedHeaders: true,
 	})
 
 	handler.CompleteUploads = processUpload()
@@ -107,11 +108,12 @@ func main() {
 
 	hostname := viper.GetString("hostname")
 
-	gin.SetMode(gin.ReleaseMode)
+	// gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{hostname}
 	config.AddAllowHeaders("Authorization", "tus-resumable", "upload-length", "upload-metadata", "upload-offset", "Location")
+	config.AddAllowMethods("POST", "HEAD", "PATCH")
 	router.Use(cors.New(config))
 	router.POST("/files/*any", keycloakMiddleware, addMetadata, gin.WrapH(http.StripPrefix("/files/", handler)))
 	router.HEAD("/files/*any", keycloakMiddleware, gin.WrapH(http.StripPrefix("/files/", handler)))
