@@ -52,6 +52,7 @@ func addMetadata(c *gin.Context) {
 
 	path, ok := (*claims)["goup_path"].(string)
 	if !ok {
+		fmt.Println("gnagnagna")
 		c.JSON(403, "Forbidden")
 		c.Abort()
 		return
@@ -112,8 +113,9 @@ func main() {
 	router := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{hostname}
-	config.AddAllowHeaders("Authorization", "tus-resumable", "upload-length", "upload-metadata", "upload-offset", "Location")
+	config.AddAllowHeaders("Authorization", "Tus-Resumable", "Upload-Length", "Upload-Metadata", "Upload-Offset", "Location")
 	config.AddAllowMethods("POST", "HEAD", "PATCH")
+	config.AddExposeHeaders("Content-Length")
 	router.Use(cors.New(config))
 	router.POST("/files/*any", keycloakMiddleware, addMetadata, gin.WrapH(http.StripPrefix("/files/", handler)))
 	router.HEAD("/files/*any", keycloakMiddleware, gin.WrapH(http.StripPrefix("/files/", handler)))
