@@ -52,7 +52,6 @@ func addMetadata(c *gin.Context) {
 
 	path, ok := (*claims)["goup_path"].(string)
 	if !ok {
-		fmt.Println("gnagnagna")
 		c.JSON(403, "Forbidden")
 		c.Abort()
 		return
@@ -60,7 +59,6 @@ func addMetadata(c *gin.Context) {
 
 	err := checkStorage(path)
 	if err != nil {
-		fmt.Println(path)
 		c.JSON(500, err.Error())
 		c.Abort()
 		return
