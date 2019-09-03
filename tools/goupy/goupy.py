@@ -22,14 +22,19 @@ def main():
     writer.writerow(d)
 
 def read_info(path):
-  with open(path) as json_file:
-    data = json.load(json_file)
-    for k in data['MetaData'].keys():
-      data['md-' + k] = data['MetaData'][k]
-      del data['MetaData'][k]
-    del data['MetaData']
+  if path[-4:] == 'info':
+    with open(path) as json_file:
+      try:
+        data = json.load(json_file)
+      except:
+        return None
 
-    return data
+      for k in data['MetaData'].keys():
+        data['md-' + k] = data['MetaData'][k]
+        del data['MetaData'][k]
+      del data['MetaData']
+
+      return data
 
 def get_keys(datas):
   keys = set()
