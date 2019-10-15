@@ -29,6 +29,7 @@ def read_info(path):
       except:
         return None
 
+      data['creation_date'] = os.path.getmtime(path)
       for k in data['MetaData'].keys():
         data['md-' + k] = data['MetaData'][k]
         del data['MetaData'][k]
