@@ -14,7 +14,7 @@ def main():
     print "Le chemin indiqué n'est pas un répertoire"
     sys.exit(1)
 
-  data = [read_info(sys.argv[1] + path) for path in os.listdir(sys.argv[1]) if  read_info(sys.argv[1] + path) != None]
+  data = [read_info(os.path.join(sys.argv[1], path)) for path in os.listdir(sys.argv[1]) if  read_info(os.path.join(sys.argv[1], path)) != None]
   
   writer = csv.DictWriter(sys.stdout, get_keys(data), dialect=csv.excel)
   writer.writeheader() 
