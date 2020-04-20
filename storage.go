@@ -7,7 +7,7 @@ import (
 	"os/user"
 	"strconv"
 
-	"github.com/tus/tusd"
+	tusd "github.com/tus/tusd/pkg/handler"
 
 	"github.com/spf13/viper"
 )
@@ -57,7 +57,8 @@ func filesToMap(array []os.FileInfo) map[string]struct{} {
 	return m
 }
 
-func linkFile(file tusd.FileInfo) error {
+func linkFile(event tusd.HookEvent) error {
+	file := event.Upload
 	basePath := viper.GetString("basePath")
 	tusdStore := basePath + "/tusd/"
 

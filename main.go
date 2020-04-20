@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/Nerzal/gocloak"
-	"github.com/tus/tusd"
-	"github.com/tus/tusd/filestore"
+	"github.com/tus/tusd/pkg/filestore"
+	tusd "github.com/tus/tusd/pkg/handler"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-contrib/cors"
@@ -33,8 +33,8 @@ type File struct {
 
 var keycloak gocloak.GoCloak
 
-func processUpload() chan tusd.FileInfo {
-	channel := make(chan tusd.FileInfo)
+func processUpload() chan tusd.HookEvent {
+	channel := make(chan tusd.HookEvent)
 	go func() {
 		for file := range channel {
 			err := linkFile(file)
@@ -88,7 +88,6 @@ func main() {
 		Path: viper.GetString("basePath") + "/tusd/",
 	}
 	composer := tusd.NewStoreComposer()
-	composer.UsesGetReader = false
 
 	store.UseIn(composer)
 
