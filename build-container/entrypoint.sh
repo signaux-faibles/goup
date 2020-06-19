@@ -18,7 +18,7 @@ if [ ! -e $CONTAINER_ALREADY_STARTED ]; then
       while read gid group
       do 
         addgroup -g "${gid}" "${group}"
-        usermod -a -G "${group}" goup
+        addgroup goup "${group}" 
         echo "group ${group} with gid ${gid} created and goup user added"
         
       done < /app/groups

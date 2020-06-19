@@ -90,7 +90,7 @@ func linkFile(event tusd.HookEvent) error {
 		return fmt.Errorf("group for %s does not exist, leaving file in tusd", store)
 	}
 
-	clamav := exec.Command("clamscan", tusdStore+file.ID)
+	clamav := exec.Command("/usr/bin/clamscan", tusdStore+file.ID)
 	var b bytes.Buffer
 	clamav.Stdout = &b
 	clamav.Stderr = &b
@@ -101,7 +101,7 @@ func linkFile(event tusd.HookEvent) error {
 			return fmt.Errorf("virus found on file %s", tusdStore+file.ID)
 		}
 		if errorCode == 2 {
-			return fmt.Errorf("couldn't scan file %s", tusdStore+file.ID)
+			return fmt.Errorf("couldn't scan file %s \n, detail:\n%s", tusdStore+file.ID, b.String())
 		}
 	}
 
