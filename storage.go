@@ -69,8 +69,13 @@ func linkFile(event tusd.HookEvent) error {
 	basePath := viper.GetString("basePath")
 
 	if checkGroup(file.MetaData["goup-path"]) {
+		group := "public"
+		if file.MetaData["private"] == "true" {
+			group = file.MetaData["goup-path"]
+		}
+
 		var b bytes.Buffer
-		cmd := exec.Command("sudo", linkFile, basePath, file.ID, file.MetaData["goup-path"])
+		cmd := exec.Command("sudo", linkFile, basePath, file.ID, group)
 		cmd.Stderr = &b
 		cmd.Stdout = &b
 		cmd.Run()
