@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
-	"os/user"
-	"strconv"
+	"os/exec"
 
 	tusd "github.com/tus/tusd/pkg/handler"
 
@@ -57,63 +58,23 @@ func filesToMap(array []os.FileInfo) map[string]struct{} {
 	return m
 }
 
+func checkGroup(goupPath string) bool {
+
+	return true
+}
+
 func linkFile(event tusd.HookEvent) error {
 	file := event.Upload
+	linkFile := viper.GetString("linkFile")
 	basePath := viper.GetString("basePath")
-	tusdStore := basePath + "/tusd/"
 
-	usersgroup, err := user.LookupGroup("users")
-	if err != nil {
-		return err
-	}
-	goupgroup, err := user.LookupGroup("goup")
-	if err != nil {
-		return err
-	}
-	user, err := user.Lookup(file.MetaData["goup-path"])
-	if err != nil {
-		return err
-	}
-
-	owner, _ := strconv.Atoi(user.Uid)
-	group, _ := strconv.Atoi(usersgroup.Gid)
-
-	var userStore string
-	if file.MetaData["private"] == "true" {
-		userStore = basePath + "/" + file.MetaData["goup-path"] + "/"
-		group, _ = strconv.Atoi(goupgroup.Gid)
-	} else {
-		userStore = basePath + "/" + "public/"
-	}
-
-	err = os.Link(tusdStore+file.ID+".info", userStore+file.ID+".info")
-	if err != nil {
-		return err
-	}
-
-	err = os.Link(tusdStore+file.ID+".bin", userStore+file.ID+".bin")
-	if err != nil {
-		return err
-	}
-
-	err = os.Chmod(tusdStore+file.ID+".info", 0660)
-	if err != nil {
-		return err
-	}
-
-	err = os.Chown(tusdStore+file.ID+".info", owner, group)
-	if err != nil {
-		return err
-	}
-
-	err = os.Chmod(tusdStore+file.ID+".bin", 0660)
-	if err != nil {
-		return err
-	}
-
-	err = os.Chown(tusdStore+file.ID+".bin", owner, group)
-	if err != nil {
-		return err
+	if checkGroup(file.MetaData["goup-path"]) {
+		var b bytes.Buffer
+		cmd := exec.Command("/bin/sh", "-c", "sudo", linkFile, basePath, file.ID, file.MetaData["goup-path"])
+		cmd.Stderr = &b
+		cmd.Stdout = &b
+		cmd.Run()
+		fmt.Println(string(b.String()))
 	}
 
 	return nil

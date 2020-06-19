@@ -34,4 +34,4 @@ else
     echo "-- Not first container startup, just running"
 fi
 
-sudo -i -u goup /app/goup
+sudo -i -u goup GIN_MODE=release /app/goup
