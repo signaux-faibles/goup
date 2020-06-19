@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
+	"strconv"
 
 	tusd "github.com/tus/tusd/pkg/handler"
 
@@ -64,22 +66,64 @@ func checkGroup(goupPath string) bool {
 }
 
 func linkFile(event tusd.HookEvent) error {
+	var err error
+	var group *user.Group
+	var store string
+
 	file := event.Upload
-	linkFile := viper.GetString("linkFile")
 	basePath := viper.GetString("basePath")
+	tusdStore := basePath + "/tusd/"
 
-	if checkGroup(file.MetaData["goup-path"]) {
-		group := "public"
-		if file.MetaData["private"] == "true" {
-			group = file.MetaData["goup-path"]
+	if file.MetaData["goup-path"] == "" {
+		return fmt.Errorf("this user should not be there, aborting")
+	}
+
+	if file.MetaData["private"] == "true" {
+		store = basePath + "/" + file.MetaData["goup-path"] + "/"
+		group, err = user.LookupGroup(file.MetaData["goup-path"])
+	} else {
+		store = basePath + "/" + "public/"
+		group, err = user.LookupGroup("public")
+	}
+
+	if err != nil {
+		return fmt.Errorf("group for %s does not exist, leaving file in tusd", store)
+	}
+
+	clamav := exec.Command("clamscan", tusdStore+file.ID)
+	var b bytes.Buffer
+	clamav.Stdout = &b
+	clamav.Stderr = &b
+	errClamav := clamav.Run()
+	if errClamav != nil {
+		errorCode := errClamav.(*exec.ExitError).ExitCode()
+		if errorCode == 1 {
+			return fmt.Errorf("virus found on file %s", tusdStore+file.ID)
 		}
+		if errorCode == 2 {
+			return fmt.Errorf("couldn't scan file %s", tusdStore+file.ID)
+		}
+	}
 
-		var b bytes.Buffer
-		cmd := exec.Command("sudo", linkFile, basePath, file.ID, group)
-		cmd.Stderr = &b
-		cmd.Stdout = &b
-		cmd.Run()
-		fmt.Println(b.String())
+	err = os.Link(tusdStore+file.ID+".info", store+file.ID+".info")
+	if err != nil {
+		return err
+	}
+
+	err = os.Link(tusdStore+file.ID, store+file.ID)
+	if err != nil {
+		return err
+	}
+
+	gid, _ := strconv.Atoi(group.Gid)
+	err = os.Chown(tusdStore+file.ID+".info", -1, gid)
+	if err != nil {
+		return err
+	}
+
+	err = os.Chown(tusdStore+file.ID, -1, gid)
+	if err != nil {
+		return err
 	}
 
 	return nil
