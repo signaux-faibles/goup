@@ -70,11 +70,11 @@ func linkFile(event tusd.HookEvent) error {
 
 	if checkGroup(file.MetaData["goup-path"]) {
 		var b bytes.Buffer
-		cmd := exec.Command("/bin/sh", "-c", "sudo", linkFile, basePath, file.ID, file.MetaData["goup-path"])
+		cmd := exec.Command("sudo", linkFile, basePath, file.ID, file.MetaData["goup-path"])
 		cmd.Stderr = &b
 		cmd.Stdout = &b
 		cmd.Run()
-		fmt.Println(string(b.String()))
+		fmt.Println(b.String())
 	}
 
 	return nil
