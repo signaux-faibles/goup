@@ -13,7 +13,6 @@ import (
 )
 
 func checkStorage(path string) error {
-	fmt.Println("checkStorage")
 	err := checkDir(path)
 	if err != nil {
 		return err
@@ -54,65 +53,100 @@ func checkDir(path string) error {
 }
 
 func linkFile(event tusd.HookEvent) error {
-	var err error
-	var group *user.Group
-	var store string
-
 	file := event.Upload
 	basePath := viper.GetString("basePath")
-	tusdStore := basePath + "/tusd/"
-
 	if file.MetaData["goup-path"] == "" {
 		return fmt.Errorf("this user should not be there, aborting")
 	}
-
+	var path string
 	if file.MetaData["private"] == "true" {
-		store = basePath + "/" + file.MetaData["goup-path"] + "/"
-		group, err = user.LookupGroup(file.MetaData["goup-path"])
+		path = file.MetaData["goup-path"]
 	} else {
-		store = basePath + "/" + "public/"
-		group, err = user.LookupGroup("public")
+		path = "public"
 	}
-
+	group, err := user.LookupGroup(path)
 	if err != nil {
-		return fmt.Errorf("group for %s does not exist, leaving file in tusd", store)
+		return fmt.Errorf("group for %s does not exist, leaving file in tusd", path)
 	}
+	tusdFilePath := filepath.Join(basePath, "tusd", file.ID)
+	finalFilePath := filepath.Join(basePath, path, file.ID)
+	err = scanFile(tusdFilePath)
+	if err != nil {
+		return err
+	}
+	err = makeHardLinks(tusdFilePath, finalFilePath)
+	if err != nil {
+		return err
+	}
+	gid, err := strconv.Atoi(group.Gid)
+	if err != nil {
+		return err
+	}
+	err = changeOwner(tusdFilePath, gid)
+	if err != nil {
+		return err
+	}
+	err = changePermissions(tusdFilePath)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-	clamav := exec.Command("/usr/bin/clamscan", tusdStore+file.ID)
+func scanFile(path string) error {
+	clamav := exec.Command("/usr/bin/clamscan", path)
 	var b bytes.Buffer
 	clamav.Stdout = &b
 	clamav.Stderr = &b
-	errClamav := clamav.Run()
-	if errClamav != nil {
-		errorCode := errClamav.(*exec.ExitError).ExitCode()
-		if errorCode == 1 {
-			return fmt.Errorf("virus found on file %s", tusdStore+file.ID)
+	err := clamav.Run()
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			errorCode := exitError.ExitCode()
+			if errorCode == 1 {
+				return fmt.Errorf("virus found on file %s", path)
+			}
+			if errorCode == 2 {
+				return fmt.Errorf("can't scan file %s, see details:\n%s", path, b.String())
+			}
 		}
-		if errorCode == 2 {
-			return fmt.Errorf("couldn't scan file %s \n, detail:\n%s", tusdStore+file.ID, b.String())
-		}
+		return err
 	}
+	return nil
+}
 
-	err = os.Link(tusdStore+file.ID+".info", store+file.ID+".info")
+func makeHardLinks(sourcePath string, targetPath string) error {
+	err := os.Link(sourcePath + ".info", targetPath + ".info")
 	if err != nil {
 		return err
 	}
-
-	err = os.Link(tusdStore+file.ID, store+file.ID)
+	err = os.Link(sourcePath, targetPath)
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
-	gid, _ := strconv.Atoi(group.Gid)
-	err = os.Chown(tusdStore+file.ID+".info", -1, gid)
+func changeOwner(path string, gid int) error {
+	err := os.Chown(path + ".info", -1, gid)
 	if err != nil {
 		return err
 	}
-
-	err = os.Chown(tusdStore+file.ID, -1, gid)
+	err = os.Chown(path, -1, gid)
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
+func changePermissions(path string) error {
+	mode := int(0640)
+	err := os.Chmod(path + ".info", os.FileMode(mode))
+	if err != nil {
+		return err
+	}
+	err = os.Chmod(path, os.FileMode(mode))
+	if err != nil {
+		return err
+	}
 	return nil
 }
