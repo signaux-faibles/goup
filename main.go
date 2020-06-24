@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Nerzal/gocloak"
+	"github.com/Nerzal/gocloak/v5"
 	"github.com/tus/tusd/pkg/filestore"
 	tusd "github.com/tus/tusd/pkg/handler"
 
