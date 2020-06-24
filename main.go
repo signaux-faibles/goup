@@ -110,7 +110,7 @@ func main() {
 	router := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{hostname}
-	config.AddAllowHeaders("Authorization", "Tus-Resumable", "Upload-Length", "Upload-Metadata", "Upload-Offset", "Location")
+	config.AddAllowHeaders("Authorization", "Tus-Resumable", "Upload-Length", "Upload-Metadata", "Upload-Offset", "Location", "X-HTTP-Method-Override")
 	config.AddAllowMethods("POST", "HEAD", "PATCH")
 	config.AddExposeHeaders("Content-Length")
 	router.Use(cors.New(config))
