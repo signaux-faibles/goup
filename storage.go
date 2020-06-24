@@ -2,67 +2,55 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
 	"strconv"
-
+	"path/filepath"
 	tusd "github.com/tus/tusd/pkg/handler"
-
 	"github.com/spf13/viper"
 )
 
-func checkStorage(users ...string) error {
-	store := viper.GetString("basePath")
-	dirs, err := ioutil.ReadDir(store)
+func checkStorage(path string) error {
+	fmt.Println("checkStorage")
+	err := checkDir(path)
 	if err != nil {
 		return err
 	}
-
-	usersMap := arrayToMap(users)
-	dirsMap := filesToMap(dirs)
-	for k := range usersMap {
-		if _, ok := dirsMap[k]; !ok {
-			public, err := os.Stat(store + "/" + k + "-public")
-			if err != nil || !public.IsDir() {
-				return errors.New("Stockage public manquant pour " + k)
-			}
-
-			private, err := os.Stat(store + "/" + k + "/private")
-			if err != nil || !private.IsDir() {
-				return errors.New("Stockage privé manquant pour " + k)
-			}
-		}
+	err = checkDir("public")
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
-func arrayToMap(array []string) map[string]struct{} {
-	m := make(map[string]struct{})
-
-	for _, v := range array {
-		m[v] = struct{}{}
+func checkDir(path string) error {
+	basePath := viper.GetString("basePath")
+	fullPath := filepath.Join(basePath, path)
+	file, err := os.Stat(fullPath);
+	if os.IsNotExist(err) {
+		err := os.Mkdir(fullPath, 0750)
+		if err != nil {
+			return fmt.Errorf("new directory %s can not be created", path)
+		}
+		group, err := user.LookupGroup(path)
+		if err != nil {
+			return err
+		}
+		gid, err := strconv.Atoi(group.Gid)
+		if err != nil {
+			return err
+		}
+		err = os.Chown(fullPath, -1, gid)
+		if err != nil {
+			return err
+		}
 	}
-
-	return m
-}
-
-func filesToMap(array []os.FileInfo) map[string]struct{} {
-	m := make(map[string]struct{})
-
-	for _, v := range array {
-		m[v.Name()] = struct{}{}
+	if (!file.IsDir()) {
+		return fmt.Errorf("file %s should be a directory", path)
 	}
-
-	return m
-}
-
-func checkGroup(goupPath string) bool {
-
-	return true
+	return nil
 }
 
 func linkFile(event tusd.HookEvent) error {
