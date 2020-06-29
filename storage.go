@@ -46,7 +46,7 @@ func checkDir(path string) error {
 			return err
 		}
 	}
-	if (!file.IsDir()) {
+	if (file != nil && !file.IsDir()) {
 		return fmt.Errorf("file %s should be a directory", path)
 	}
 	return nil
