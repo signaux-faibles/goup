@@ -94,7 +94,7 @@ func linkFile(event tusd.HookEvent) error {
 }
 
 func scanFile(path string) error {
-	clamav := exec.Command("/usr/bin/clamscan", path)
+	clamav := exec.Command(viper.GetString("clamavPath"), path)
 	var b bytes.Buffer
 	clamav.Stdout = &b
 	clamav.Stderr = &b
