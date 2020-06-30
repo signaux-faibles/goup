@@ -85,6 +85,8 @@ Pour obtenir ce token, il conviendra d'utiliser au préalable un client Keycloak
 Comme pour tus, il existe des clients Keycloak dans différents langages : https://www.keycloak.org/docs/latest/securing_apps/#what-are-client-adapters.
 L'habilitation à verser des fichiers dans goup sera portée dans le chargement du jeton.
 
+Il est à noter que selon la durée de vie du jeton, il peut être nécessaire de mettre à jour le jeton pendant un upload, chaque requête est authentifiée individuellement.
+
 ### Structure du jeton
 Le chargement du jeton est un objet JSON devant comporter une clé `goup_path` avec une chaîne de caractère identifiant le groupe d'utilisateurs POSIX du système cible. En conséquence de quoi :
 - la clé `goup_path` doit correspondre à un nom de groupe d'utilisateurs POSIX du système
