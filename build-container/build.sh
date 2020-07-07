@@ -26,11 +26,11 @@ fi
 unzip "$1.zip"
 cd "goup-$1"
 
-CGO_ENABLED=0 go build
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build
 
 # Build docker
 cd ../..
-docker build -t goup --build-arg binary="./workspace/goup-$1/goup" . 
+docker build -t goup --build-arg path="./workspace/goup-$1" . 
 docker save goup | gzip > goup.tar.gz
 
 # Cleanup

@@ -1,3 +1,8 @@
-bind = "127.0.0.1:5000" 
-jwtSecret = "don't keep this secret"
-basePath = "/some/basePath"
+bind = "1.2.3.4:5678"                     # network binding
+basePath = "/var/lib/goup_base"           # where goup puts stuff
+hostname = "http://foo.bar:8081"          # the domain name users see
+keycloakHostname = "http://foo.bar:8080"  # where goup gets realm certs
+keycloakRealm = "foo-realm"               # likely master, see your keycloak instance for details
+clamavPath = "/usr/bin/clamscan"          # path where clamav is installed
+smtpHost = "1.2.3.4:25"                   # only plain smtp without auth at the moment
+fromEmailAddress = "foobar@foo.bar"       # email address from which the emails will be sent

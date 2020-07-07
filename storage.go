@@ -1,120 +1,152 @@
 package main
 
 import (
-	"errors"
-	"io/ioutil"
+	"bytes"
+	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"strconv"
-
+	"path/filepath"
 	tusd "github.com/tus/tusd/pkg/handler"
-
 	"github.com/spf13/viper"
 )
 
-func checkStorage(users ...string) error {
-	store := viper.GetString("basePath")
-	dirs, err := ioutil.ReadDir(store)
+func checkStorage(path string) error {
+	err := checkDir(path)
 	if err != nil {
 		return err
 	}
-
-	usersMap := arrayToMap(users)
-	dirsMap := filesToMap(dirs)
-	for k := range usersMap {
-		if _, ok := dirsMap[k]; !ok {
-			public, err := os.Stat(store + "/" + k + "-public")
-			if err != nil || !public.IsDir() {
-				return errors.New("Stockage public manquant pour " + k)
-			}
-
-			private, err := os.Stat(store + "/" + k + "/private")
-			if err != nil || !private.IsDir() {
-				return errors.New("Stockage privé manquant pour " + k)
-			}
-		}
+	err = checkDir("public")
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
-func arrayToMap(array []string) map[string]struct{} {
-	m := make(map[string]struct{})
-
-	for _, v := range array {
-		m[v] = struct{}{}
+func checkDir(path string) error {
+	basePath := viper.GetString("basePath")
+	fullPath := filepath.Join(basePath, path)
+	file, err := os.Stat(fullPath);
+	if os.IsNotExist(err) {
+		err := os.Mkdir(fullPath, 0750)
+		if err != nil {
+			return fmt.Errorf("new directory %s can not be created", path)
+		}
+		group, err := user.LookupGroup(path)
+		if err != nil {
+			return err
+		}
+		gid, err := strconv.Atoi(group.Gid)
+		if err != nil {
+			return err
+		}
+		err = os.Chown(fullPath, -1, gid)
+		if err != nil {
+			return err
+		}
 	}
-
-	return m
-}
-
-func filesToMap(array []os.FileInfo) map[string]struct{} {
-	m := make(map[string]struct{})
-
-	for _, v := range array {
-		m[v.Name()] = struct{}{}
+	if (file != nil && !file.IsDir()) {
+		return fmt.Errorf("file %s should be a directory", path)
 	}
-
-	return m
+	return nil
 }
 
 func linkFile(event tusd.HookEvent) error {
 	file := event.Upload
 	basePath := viper.GetString("basePath")
-	tusdStore := basePath + "/tusd/"
-
-	usersgroup, err := user.LookupGroup("users")
-	if err != nil {
-		return err
+	if file.MetaData["goup-path"] == "" {
+		return fmt.Errorf("this user should not be there, aborting")
 	}
-	goupgroup, err := user.LookupGroup("goup")
-	if err != nil {
-		return err
-	}
-	user, err := user.Lookup(file.MetaData["goup-path"])
-	if err != nil {
-		return err
-	}
-
-	owner, _ := strconv.Atoi(user.Uid)
-	group, _ := strconv.Atoi(usersgroup.Gid)
-
-	var userStore string
+	var path string
 	if file.MetaData["private"] == "true" {
-		userStore = basePath + "/" + file.MetaData["goup-path"] + "/"
-		group, _ = strconv.Atoi(goupgroup.Gid)
+		path = file.MetaData["goup-path"]
 	} else {
-		userStore = basePath + "/" + "public/"
+		path = "public"
 	}
-
-	err = os.Link(tusdStore+file.ID+".info", userStore+file.ID+".info")
+	group, err := user.LookupGroup(path)
+	if err != nil {
+		return fmt.Errorf("group for %s does not exist, leaving file in tusd", path)
+	}
+	tusdFilePath := filepath.Join(basePath, "tusd", file.ID)
+	finalFilePath := filepath.Join(basePath, path, file.ID)
+	err = scanFile(tusdFilePath)
 	if err != nil {
 		return err
 	}
-
-	err = os.Link(tusdStore+file.ID+".bin", userStore+file.ID+".bin")
+	err = makeHardLinks(tusdFilePath, finalFilePath)
 	if err != nil {
 		return err
 	}
-
-	err = os.Chmod(tusdStore+file.ID+".info", 0660)
+	gid, err := strconv.Atoi(group.Gid)
 	if err != nil {
 		return err
 	}
-
-	err = os.Chown(tusdStore+file.ID+".info", owner, group)
+	err = changeOwner(tusdFilePath, gid)
 	if err != nil {
 		return err
 	}
-
-	err = os.Chmod(tusdStore+file.ID+".bin", 0660)
+	err = changePermissions(tusdFilePath)
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
-	err = os.Chown(tusdStore+file.ID+".bin", owner, group)
+func scanFile(path string) error {
+	clamav := exec.Command(viper.GetString("clamavPath"), path)
+	var b bytes.Buffer
+	clamav.Stdout = &b
+	clamav.Stderr = &b
+	err := clamav.Run()
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			errorCode := exitError.ExitCode()
+			if errorCode == 1 {
+				return fmt.Errorf("virus found on file %s", path)
+			}
+			if errorCode == 2 {
+				return fmt.Errorf("can't scan file %s, see details:\n%s", path, b.String())
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+func makeHardLinks(sourcePath string, targetPath string) error {
+	err := os.Link(sourcePath + ".info", targetPath + ".info")
 	if err != nil {
 		return err
 	}
+	err = os.Link(sourcePath, targetPath)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
+func changeOwner(path string, gid int) error {
+	err := os.Chown(path + ".info", -1, gid)
+	if err != nil {
+		return err
+	}
+	err = os.Chown(path, -1, gid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func changePermissions(path string) error {
+	mode := int(0640)
+	err := os.Chmod(path + ".info", os.FileMode(mode))
+	if err != nil {
+		return err
+	}
+	err = os.Chmod(path, os.FileMode(mode))
+	if err != nil {
+		return err
+	}
 	return nil
 }

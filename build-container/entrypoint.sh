@@ -18,7 +18,9 @@ if [ ! -e $CONTAINER_ALREADY_STARTED ]; then
       while read gid group
       do 
         addgroup -g "${gid}" "${group}"
-        echo "group ${group} with gid ${gid} created"
+        addgroup goup "${group}" 
+        echo "group ${group} with gid ${gid} created and goup user added"
+        
       done < /app/groups
     else
       echo "no groups created, that's weird but ok, are you sure ?"
@@ -34,4 +36,4 @@ else
     echo "-- Not first container startup, just running"
 fi
 
-sudo -i -u goup /app/goup
+sudo -i -u goup GIN_MODE=release /app/goup

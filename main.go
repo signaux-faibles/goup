@@ -4,10 +4,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/smtp"
 	"os"
 	"strings"
 
-	"github.com/Nerzal/gocloak"
+	"github.com/Nerzal/gocloak/v5"
 	"github.com/tus/tusd/pkg/filestore"
 	tusd "github.com/tus/tusd/pkg/handler"
 
@@ -36,14 +37,57 @@ var keycloak gocloak.GoCloak
 func processUpload() chan tusd.HookEvent {
 	channel := make(chan tusd.HookEvent)
 	go func() {
-		for file := range channel {
-			err := linkFile(file)
+		for event := range channel {
+			err := linkFile(event)
+			email := event.Upload.MetaData["email"]
+			filename := event.Upload.MetaData["filename"]
 			if err != nil {
 				fmt.Println(err)
+				if email != "" && filename != "" {
+					err := sendFailureEmail(email, filename)
+					if err != nil {
+						fmt.Println(err)
+					}
+				}
+			} else {
+				if email != "" && filename != "" {
+					err := sendSuccessEmail(email, filename)
+					if err != nil {
+						fmt.Println(err)
+					}
+				}
 			}
 		}
 	}()
 	return channel
+}
+
+func sendSuccessEmail(to string, filename string) error {
+	msg := []byte("From: Signaux Faibles <" + viper.GetString("fromEmailAddress") + ">\r\n" +
+		"To: " + to + "\r\n" +
+		"Subject: Fichier transmis avec succès\n" +
+		"\r\n" +
+		"Le fichier \"" + filename + "\" a bien été transmis à Signaux Faibles.\r\n")
+	// Sending "Bcc" messages is accomplished by including an email address in the to parameter but not including it in the msg headers
+	err := smtp.SendMail(viper.GetString("smtpHost"), nil, viper.GetString("fromEmailAddress"), []string{to, viper.GetString("fromEmailAddress")}, msg)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func sendFailureEmail(to string, filename string) error {
+	msg := []byte("From: Signaux Faibles <" + viper.GetString("fromEmailAddress") + ">\r\n" +
+		"To: " + to + "\r\n" +
+		"Subject: Fichier non transmis\n" +
+		"\r\n" +
+		"Un problème est survenu lors de la transmission du fichier \"" + filename + "\" à Signaux Faibles.\r\n")
+	// Sending "Bcc" messages is accomplished by including an email address in the to parameter but not including it in the msg headers
+	err := smtp.SendMail(viper.GetString("smtpHost"), nil, viper.GetString("fromEmailAddress"), []string{to, viper.GetString("fromEmailAddress")}, msg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func addMetadata(c *gin.Context) {
@@ -65,6 +109,11 @@ func addMetadata(c *gin.Context) {
 	}
 
 	metadata = metadata + ", goup-path " + base64.StdEncoding.EncodeToString([]byte(path))
+	email, ok := (*claims)["email"].(string)
+	if ok {
+		metadata = metadata + ", email " + base64.StdEncoding.EncodeToString([]byte(email))
+	}
+	
 	c.Request.Header.Set("upload-metadata", metadata)
 	c.Next()
 }
@@ -110,7 +159,7 @@ func main() {
 	router := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{hostname}
-	config.AddAllowHeaders("Authorization", "Tus-Resumable", "Upload-Length", "Upload-Metadata", "Upload-Offset", "Location")
+	config.AddAllowHeaders("Authorization", "Tus-Resumable", "Upload-Length", "Upload-Metadata", "Upload-Offset", "Location", "X-HTTP-Method-Override")
 	config.AddAllowMethods("POST", "HEAD", "PATCH")
 	config.AddExposeHeaders("Content-Length")
 	router.Use(cors.New(config))

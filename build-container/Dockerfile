@@ -1,6 +1,6 @@
 FROM alpine
-ARG binary
-COPY ["./$binary", "entrypoint.sh", "/app/"]
+ARG path
+COPY ["./$path/goup", "entrypoint.sh", "/app/"]
 RUN apk add --no-cache clamav sudo;\
     chmod 555 /app/goup;\
     chmod 555 /app/entrypoint.sh;
