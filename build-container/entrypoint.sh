@@ -3,7 +3,7 @@
 set -e
 
 if [[ -z "$GOUP_UID" ]]; then
-  echo "$GOUP_UID is mandatory, please provide goup user's uid"
+  echo "env var 'GOUP_UID' is mandatory, please provide goup user's uid"
   exit 1
 fi
 
